@@ -257,17 +257,26 @@ function Dashboard() {
       }
     }
 
-    // Get city and skill from answers
+    // Load profile first, then fall back to answers
+    const profile = localStorage.getItem('skillaunch_profile');
     const answers = localStorage.getItem('skillaunch_answers');
-    if (answers) {
+
+    if (profile) {
+      try {
+        const parsed = JSON.parse(profile);
+        if (parsed.name) setUserName(parsed.name);
+        if (parsed.city) setUserCity(parsed.city);
+        if (parsed.skill) setUserSkill(parsed.skill.toLowerCase());
+      } catch (e) {
+        console.error('Error loading profile:', e);
+      }
+    }
+
+    if (!profile && answers) {
       try {
         const parsed = JSON.parse(answers);
-        if (parsed.city) {
-          setUserCity(parsed.city);
-        }
-        if (parsed.skill) {
-          setUserSkill(parsed.skill.toLowerCase());
-        }
+        if (parsed.city) setUserCity(parsed.city);
+        if (parsed.skill) setUserSkill(parsed.skill.toLowerCase());
         if (parsed.skill) {
           setUserName(parsed.skill.charAt(0).toUpperCase() + parsed.skill.slice(1) + ' Entrepreneur');
         }
@@ -462,11 +471,24 @@ function Dashboard() {
     <main className="min-h-screen bg-[#0a0a14] px-4 py-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-white mb-2" style={{ fontFamily: 'Georgia, serif' }}>
-            Dashboard
-          </h1>
-          <p className="text-white/60">Manage your ideas and explore opportunities</p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2" style={{ fontFamily: 'Georgia, serif' }}>
+              Dashboard
+            </h1>
+            <p className="text-white/60">Manage your ideas and explore opportunities</p>
+          </div>
+          <button
+            onClick={() => navigate('/profile')}
+            className="flex-shrink-0 w-10 h-10 rounded-full bg-[#1a1a2e] border border-white/20 flex items-center justify-center text-white/80 hover:text-white hover:border-orange-500/50 hover:bg-orange-500/20 transition-colors"
+            title="Customise Profile"
+            aria-label="Customise Profile"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </button>
         </div>
 
         {/* Tabs */}

@@ -9,6 +9,7 @@ function Results() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [logoStyle, setLogoStyle] = useState(0); // 0: minimal, 1: rounded, 2: badge
 
   useEffect(() => {
     const raw = localStorage.getItem("skillaunch_idea") || "{}";
@@ -25,6 +26,58 @@ function Results() {
       navigate("/onboarding", { replace: true });
     }
   }, [navigate]);
+
+  // Location heat map: which areas are best for this business (high demand = hot)
+  const getLocationHeatMap = (skill = "") => {
+    const s = String(skill).toLowerCase();
+    const heat = (location, level, reason) => ({ location, level, reason });
+    if (s.includes("cook") || s.includes("food") || s.includes("tiffin") || s.includes("catering")) {
+      return [
+        heat("PGs (Paying Guest)", "high", "Residents need home-cooked meals daily"),
+        heat("Hostels", "high", "Students look for affordable, homely food"),
+        heat("Residential Societies", "high", "Families want tiffin or home delivery"),
+        heat("Colleges / Universities", "medium", "Canteen alternative, event catering"),
+        heat("Corporate Parks", "medium", "Office lunch & party orders"),
+        heat("Near Hospitals", "low", "Patient family meals")
+      ];
+    }
+    if (s.includes("tutor") || s.includes("teaching") || s.includes("coaching") || s.includes("education")) {
+      return [
+        heat("Residential Areas", "high", "Parents seek home tutors for kids"),
+        heat("PGs & Hostels", "high", "Students need exam prep and doubt sessions"),
+        heat("Schools / Coaching Hubs", "high", "Supplement classes, competition prep"),
+        heat("Colleges", "high", "Placement prep, language, skills"),
+        heat("Libraries", "medium", "Study groups and doubt sessions")
+      ];
+    }
+    if (s.includes("design") || s.includes("graphic") || s.includes("logo") || s.includes("digital")) {
+      return [
+        heat("Startup Hubs", "high", "Early-stage companies need branding"),
+        heat("IT Parks", "high", "Corporates need design & marketing assets"),
+        heat("Co-working Spaces", "high", "Freelancers & small teams"),
+        heat("Residential", "medium", "Personal projects, events, gifts"),
+        heat("Colleges", "medium", "Event posters, society branding")
+      ];
+    }
+    // Default for other skills
+    return [
+      heat("Residential Societies", "high", "Regular local demand"),
+      heat("PGs & Hostels", "high", "Dense population, repeat customers"),
+      heat("Commercial Areas", "medium", "Shops & small offices"),
+      heat("Schools / Colleges", "medium", "Events and institutional clients"),
+      heat("IT Parks / Corporates", "medium", "B2B opportunities")
+    ];
+  };
+
+  const answersRaw = localStorage.getItem("skillaunch_answers") || "{}";
+  const answers = (() => {
+    try {
+      return JSON.parse(answersRaw);
+    } catch {
+      return {};
+    }
+  })();
+  const locationHeatMap = getLocationHeatMap(answers.skill);
 
   const toggleChecklist = (i) => {
     setChecked((prev) => {
@@ -86,6 +139,41 @@ function Results() {
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(
     whatsappPitch || ""
   )}`;
+
+  // Generate initials from business name (first letter of first 2 words, or first 2 chars)
+  const getInitials = (name) => {
+    const words = String(name || "B").trim().split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+      return (words[0][0] + words[1][0]).toUpperCase();
+    }
+    return (name || "B").slice(0, 2).toUpperCase();
+  };
+
+  const initials = getInitials(businessName);
+
+  const logoStyleNames = ["Minimal", "Rounded", "Badge"];
+
+  const getLogoSvgString = (style) => {
+    const s = style % 3;
+    const gradient = `<linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ed8936"/><stop offset="100%" stop-color="#dd6b20"/></linearGradient>`;
+    const darkGrad = `<linearGradient id="gd" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1a1a2e"/><stop offset="100%" stop-color="#0f0f1f"/></linearGradient>`;
+    let shape = "";
+    if (s === 0) shape = `<circle cx="60" cy="60" r="55" fill="url(#g)"/>`;
+    else if (s === 1) shape = `<rect x="5" y="5" width="110" height="110" rx="24" fill="url(#gd)" stroke="#ed8936" stroke-width="3"/>`;
+    else shape = `<rect x="5" y="5" width="110" height="110" rx="24" fill="url(#g)"/>`;
+    return `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs>${gradient}${s === 1 ? darkGrad : ""}</defs>${shape}<text x="60" y="72" text-anchor="middle" fill="white" font-size="42" font-weight="700" font-family="Georgia,serif">${initials}</text></svg>`;
+  };
+
+  const handleDownloadLogo = () => {
+    const svgData = getLogoSvgString(logoStyle);
+    const blob = new Blob([svgData], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(businessName || "logo").replace(/\s+/g, "-")}-logo.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const tabs = ["overview", "financials", "checklist", "brand kit"];
 
@@ -174,6 +262,43 @@ function Results() {
               </div>
             </div>
 
+            {/* Location Heat Map */}
+            <div className="bg-[#1a1a2e] rounded-xl p-6 border border-white/10">
+              <h2 className="text-white text-xl font-bold mb-2">
+                🗺️ Location Heat Map
+              </h2>
+              <p className="text-white/50 text-sm mb-4">
+                Where your business can thrive — hotter = higher demand in your city
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {locationHeatMap.map((item, i) => {
+                  const styles = {
+                    high: "bg-gradient-to-br from-red-500/90 to-orange-600/90 text-white border-red-400/50",
+                    medium: "bg-gradient-to-br from-amber-500/70 to-orange-500/70 text-white border-amber-400/40",
+                    low: "bg-gradient-to-br from-slate-600/60 to-slate-700/60 text-white/90 border-slate-500/30"
+                  };
+                  const labels = { high: "🔥 Hot", medium: "🌡️ Warm", low: "❄️ Cool" };
+                  return (
+                    <div
+                      key={i}
+                      className={`rounded-xl p-4 border ${styles[item.level]} transition-transform hover:scale-[1.02]`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold">{item.location}</span>
+                        <span className="text-xs opacity-90">{labels[item.level]}</span>
+                      </div>
+                      <p className="text-xs opacity-90 mt-1">{item.reason}</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex gap-4 mt-3 text-xs text-white/40">
+                <span>🔥 Hot = High demand</span>
+                <span>🌡️ Warm = Medium</span>
+                <span>❄️ Cool = Lower potential</span>
+              </div>
+            </div>
+
             {/* Pricing */}
             <div className="bg-[#1a1a2e] rounded-xl p-6 border border-white/10">
               <h2 className="text-white text-xl font-bold mb-3">
@@ -232,6 +357,30 @@ function Results() {
                 <p className="text-white/40 text-sm">No launch plan available.</p>
               )}
             </div>
+
+            {/* Time Management Tips for Homeworkers (when 5-10 hrs or less) */}
+            {(() => {
+              const hrs = String(weeklyTimeCommitment || '').toLowerCase();
+              const hasLimitedHours = hrs.includes('5-10') || hrs.includes('1-5');
+              return hasLimitedHours;
+            })() && (
+              <div className="bg-[#1a1a2e] rounded-xl p-6 border border-white/10">
+                <h2 className="text-white text-xl font-bold mb-3">
+                  ⏰ Time Management Tips for Homeworkers
+                </h2>
+                <p className="text-white/50 text-sm mb-3">
+                  With {weeklyTimeCommitment} hours/week, here’s how to make the most of your time at home:
+                </p>
+                <ul className="space-y-2 text-white/70 text-sm">
+                  <li>• <strong className="text-orange-400">Block focus time</strong> — Schedule 1–2 hour blocks when the house is calm (early morning or after kids sleep).</li>
+                  <li>• <strong className="text-orange-400">Batch similar tasks</strong> — Do all client calls on certain days, content creation on others, to avoid context-switching.</li>
+                  <li>• <strong className="text-orange-400">Use a dedicated workspace</strong> — Even a small corner signals “work mode” and helps family respect your boundaries.</li>
+                  <li>• <strong className="text-orange-400">Automate what you can</strong> — Use WhatsApp quick replies, templates, and simple booking tools to save time.</li>
+                  <li>• <strong className="text-orange-400">Set clear boundaries</strong> — Tell family your focus hours so they know when not to disturb.</li>
+                  <li>• <strong className="text-orange-400">Track your wins</strong> — Note what tasks took longer than expected and adjust next week’s plan.</li>
+                </ul>
+              </div>
+            )}
 
             {/* Marketing Tips */}
             <div className="bg-[#1a1a2e] rounded-xl p-6 border border-white/10">
@@ -361,6 +510,65 @@ function Results() {
         {/* BRAND KIT */}
         {activeTab === "brand kit" && (
           <div className="space-y-4">
+            {/* Custom Logo */}
+            <div className="bg-[#1a1a2e] rounded-xl p-6 border border-white/10">
+              <h2 className="text-white text-xl font-bold mb-3">
+                🎨 Custom Logo
+              </h2>
+              <p className="text-white/50 text-sm mb-4">
+                Generated for {businessName} — download and use for social media, cards, and branding
+              </p>
+              <div className="flex flex-col sm:flex-row gap-6 items-center">
+                <div className="flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 rounded-2xl bg-[#0f0f1f] border border-white/10 flex items-center justify-center p-2 overflow-hidden">
+                  <svg viewBox="0 0 120 120" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#ed8936" />
+                        <stop offset="100%" stopColor="#dd6b20" />
+                      </linearGradient>
+                      <linearGradient id="logoDark" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#1a1a2e" />
+                        <stop offset="100%" stopColor="#0f0f1f" />
+                      </linearGradient>
+                    </defs>
+                    {logoStyle === 0 && <circle cx="60" cy="60" r="55" fill="url(#logoGrad)" />}
+                    {logoStyle === 1 && <rect x="5" y="5" width="110" height="110" rx="24" fill="url(#logoDark)" stroke="#ed8936" strokeWidth="3" />}
+                    {logoStyle === 2 && <rect x="5" y="5" width="110" height="110" rx="24" fill="url(#logoGrad)" />}
+                    <text x="60" y="72" textAnchor="middle" fill="white" fontSize="42" fontWeight="700" style={{ fontFamily: "Georgia, serif" }}>
+                      {initials}
+                    </text>
+                  </svg>
+                </div>
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <span className="text-white/60 text-sm">Style</span>
+                    <div className="flex gap-2 mt-1">
+                      {logoStyleNames.map((name, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setLogoStyle(i)}
+                          className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                            logoStyle === i
+                              ? "bg-orange-500 text-white"
+                              : "bg-white/10 text-white/70 hover:bg-white/15"
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleDownloadLogo}
+                    className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors"
+                  >
+                    Download SVG
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-[#1a1a2e] rounded-xl p-6 border border-white/10">
               <h2 className="text-white text-xl font-bold mb-3">
                 Instagram Bio

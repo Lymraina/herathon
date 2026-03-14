@@ -6,6 +6,7 @@ import Onboarding from './pages/Onboarding.jsx';
 import Loading from './pages/Loading.jsx';
 import Results from './pages/Results.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import Profile from './pages/Profile.jsx';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="/loading" element={<Loading />} />
         <Route path="/results" element={<Results />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
